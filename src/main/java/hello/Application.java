@@ -9,18 +9,18 @@ import javax.jms.Session;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jms.annotation.EnableJms;
-import org.springframework.jms.config.JmsListenerContainerFactory;
-import org.springframework.jms.config.SimpleJmsListenerContainerFactory;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
 import org.springframework.jms.listener.DefaultMessageListenerContainer;
+import org.springframework.jms.listener.adapter.MessageListenerAdapter;
+import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
+import org.springframework.jms.support.converter.MessageConverter;
+import org.springframework.jms.support.converter.MessageType;
 import org.springframework.util.FileSystemUtils;
 
 @SpringBootApplication
@@ -30,12 +30,44 @@ public class Application {
     private static final Logger LOGGER = LoggerFactory.getLogger(Application.class);
 
     @Bean
-    DefaultMessageListenerContainer jmsContainer(ConnectionFactory connectionFactory) {
+    public MessageConverter jsonMessageConverter() {
+        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+        converter.setTargetType(MessageType.TEXT);
+        converter.setTypeIdPropertyName("object-type");
+        return converter;
+    }
+
+    @Bean
+    public JmsTemplate jsonJmsTemplate(MessageConverter jsonMessageConverter, ConnectionFactory connectionFactory) {
+        JmsTemplate template = new JmsTemplate(connectionFactory);
+        template.setMessageConverter(jsonMessageConverter);
+        return template;
+    }
+
+    @Bean
+    public TodoEventSender eventSender(JmsTemplate jsonJmsTemplate) {
+        return new TodoEventSender(jsonJmsTemplate);
+    }
+
+    @Bean
+    public TodoEventHandler eventHandler() {
+        return new TodoEventHandler();
+    }
+
+    @Bean
+    public MessageListenerAdapter todoEventAdapter(MessageConverter jsonMessageConverter, TodoEventHandler eventHandler) {
+        MessageListenerAdapter adapter = new MessageListenerAdapter(eventHandler);
+        adapter.setDefaultListenerMethod("handleTodo");
+        adapter.setMessageConverter(jsonMessageConverter);
+        return adapter;
+    }
+
+    @Bean
+    DefaultMessageListenerContainer jmsContainer(ConnectionFactory connectionFactory, MessageListenerAdapter todoEventAdapter) {
         DefaultMessageListenerContainer container = new DefaultMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.setDestinationName("mailbox-destination");
-        // normally we would set a listener here, for ex.:
-//        container.setMessageListener(new Listener());
+        container.setDestinationName("todo-destination");
+        container.setMessageListener(todoEventAdapter);
         return container;
     }
 
@@ -46,20 +78,15 @@ public class Application {
         // Launch the application
         ConfigurableApplicationContext context = SpringApplication.run(Application.class, args);
 
-        // Send messages
-        MessageCreator messageCreator = new MessageCreator() {
-            @Override
-            public Message createMessage(Session session) throws JMSException {
-                return session.createTextMessage("ping!");
-            }
-        };
-        JmsTemplate jmsTemplate = context.getBean(JmsTemplate.class);
-        LOGGER.info("Sending a new message.");
-        jmsTemplate.send("mailbox-destination", messageCreator);
+        TodoEventSender sender = context.getBean(TodoEventSender.class);
 
-        messageCreator = (session) -> { return session.createTextMessage("pong!"); };
-        LOGGER.info("Sending a second message.");
-        jmsTemplate.send("mailbox-destination", messageCreator);
+        LOGGER.info("sending first item");
+        TodoEvent.Todo todo = new TodoEvent.Todo("first todo", "project1");
+        sender.sendEvent(new TodoEvent(1, TodoEvent.EventType.CREATED, todo));
+
+        LOGGER.info("sending second item");
+        TodoEvent.Todo todo2 = new TodoEvent.Todo("second todo", "project1");
+        sender.sendEvent(new TodoEvent(2, TodoEvent.EventType.CREATED, todo2));
 
         try {
             Thread.sleep(1000);
