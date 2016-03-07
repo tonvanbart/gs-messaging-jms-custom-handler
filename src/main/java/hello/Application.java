@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
@@ -19,6 +20,7 @@ import org.springframework.jms.support.converter.MessageType;
 import org.springframework.util.FileSystemUtils;
 
 @SpringBootApplication
+@EnableConfigurationProperties(ApplicationProperties.class)
 public class Application {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Application.class);

@@ -18,7 +18,7 @@ public class TodoEventHandler {
      * Handle incoming {@link TodoEvent} by logging it's information.
      * @param todoEvent
      */
-    @JmsListener(destination = "todo-destination")
+    @JmsListener(destination = "${app.jms.todo-queue}")
     public void handleTodo(TodoEvent todoEvent) {
         LOG.info("handleTodo({}), {}", todoEvent.getId(), todoEvent.getTodoItem());
     }

@@ -30,6 +30,7 @@ dependencies {
     compile("com.fasterxml.jackson.core:jackson-databind")
     compile("org.apache.activemq:activemq-broker")
     compile('io.reactivex:rxjava:1.1.1')
+	compile('org.springframework.boot:spring-boot-configuration-processor')
     testCompile("junit:junit")
 }
 

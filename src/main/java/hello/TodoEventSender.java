@@ -15,19 +15,21 @@ import org.springframework.stereotype.Service;
 public class TodoEventSender {
 
     private final JmsTemplate jmsTemplate;
+	private final ApplicationProperties properties;
 
     private static final Logger LOG = LoggerFactory.getLogger(TodoEventSender.class);
 
 	@Autowired
-    public TodoEventSender(JmsTemplate jmsTemplate) {
+    public TodoEventSender(JmsTemplate jmsTemplate, ApplicationProperties properties) {
         this.jmsTemplate = jmsTemplate;
-        LOG.info("initialized");
+		this.properties = properties;
+		LOG.info("initialized");
     }
 
     public void sendEvent(TodoEvent event) {
         LOG.info("sendEvent({},{},{})",
                 event.getId(), event.getEventType(), event.getTodoItem().getText());
-        jmsTemplate.convertAndSend("todo-destination", event);
+        jmsTemplate.convertAndSend(this.properties.getJms().getTodoQueue(), event);
     }
 
 }
