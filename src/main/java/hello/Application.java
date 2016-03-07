@@ -3,28 +3,22 @@ package hello;
 
 import java.io.File;
 import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.Session;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.jms.annotation.EnableJms;
+import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
 import org.springframework.jms.core.JmsTemplate;
-import org.springframework.jms.core.MessageCreator;
-import org.springframework.jms.listener.DefaultMessageListenerContainer;
-import org.springframework.jms.listener.adapter.MessageListenerAdapter;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.util.FileSystemUtils;
 
 @SpringBootApplication
-@EnableJms
 public class Application {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Application.class);
@@ -37,7 +31,7 @@ public class Application {
         return converter;
     }
 
-    @Bean
+ @Bean
     public JmsTemplate jsonJmsTemplate(MessageConverter jsonMessageConverter, ConnectionFactory connectionFactory) {
         JmsTemplate template = new JmsTemplate(connectionFactory);
         template.setMessageConverter(jsonMessageConverter);
@@ -45,30 +39,12 @@ public class Application {
     }
 
     @Bean
-    public TodoEventSender eventSender(JmsTemplate jsonJmsTemplate) {
-        return new TodoEventSender(jsonJmsTemplate);
-    }
-
-    @Bean
-    public TodoEventHandler eventHandler() {
-        return new TodoEventHandler();
-    }
-
-    @Bean
-    public MessageListenerAdapter todoEventAdapter(MessageConverter jsonMessageConverter, TodoEventHandler eventHandler) {
-        MessageListenerAdapter adapter = new MessageListenerAdapter(eventHandler);
-        adapter.setDefaultListenerMethod("handleTodo");
-        adapter.setMessageConverter(jsonMessageConverter);
-        return adapter;
-    }
-
-    @Bean
-    DefaultMessageListenerContainer jmsContainer(ConnectionFactory connectionFactory, MessageListenerAdapter todoEventAdapter) {
-        DefaultMessageListenerContainer container = new DefaultMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        container.setDestinationName("todo-destination");
-        container.setMessageListener(todoEventAdapter);
-        return container;
+    public DefaultJmsListenerContainerFactory jmsListenerContainerFactory(
+            DefaultJmsListenerContainerFactoryConfigurer configurer, ConnectionFactory connectionFactory) {
+        DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+        configurer.configure(factory, connectionFactory);
+        factory.setMessageConverter(jsonMessageConverter());
+        return factory;
     }
 
     public static void main(String[] args) {
